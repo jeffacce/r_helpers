@@ -3,7 +3,12 @@ library(rgenoud)
 library(Matching)
 library(rbounds)
 
-multiple.genmatch = function(dataset, outcome.label, match.formula, random.runs=1, pop.size=100, max.generations=50, wait.generations=20, thread.count=4) {
+multiple.genmatch = function(
+  dataset, outcome.label, match.formula,
+  random.runs=1, pop.size=100,
+  max.generations=50, wait.generations=20,
+  thread.count=4) 
+{
   outcome.vec = dataset[, outcome.label]
   var.labels = all.vars(match.formula)
   treatment.label = var.labels[1]
@@ -19,9 +24,23 @@ multiple.genmatch = function(dataset, outcome.label, match.formula, random.runs=
   max.AMsmallest.p.value = -1
   current.best.result = list()
   for (i in c(1:random.runs)) {
-    genmatch.result <- GenMatch(Tr=treatment.vec, X=covariates, BalanceMatrix=covariates, 
-                                estimand="ATT", M=1, pop.size=pop.size, max.generations=max.generations, 
-                                wait.generations=wait.generations, cluster=rep('localhost', thread.count))
+    genmatch.result <- GenMatch(
+      Tr=treatment.vec,
+      X=covariates,
+      BalanceMatrix=covariates, 
+      estimand="ATT",
+      M=1, pop.size=pop.size,
+      max.generations=max.generations,
+      wait.generations=wait.generations,
+      cluster=rep('localhost', thread.count)
+    )
+    match.result <- Match(
+      Y=outcome.vec,
+      Tr=treatment.vec,
+      X=covariates,
+      estimand="ATT",
+      Weight.matrix=genmatch.result
+    )
     balance <- MatchBalance(
       match.formula,
       data=dataset,
@@ -29,8 +48,6 @@ multiple.genmatch = function(dataset, outcome.label, match.formula, random.runs=
       nboots=500
     )
     if (balance$AMsmallest.p.value > max.AMsmallest.p.value) {
-      match.result <- Match(Y=outcome.vec, Tr=treatment.vec,
-                            X=covariates, estimand="ATT", Weight.matrix=genmatch.result)
       current.best.result = list(genmatch.result, match.result, balance)
       max.AMsmallest.p.value = balance$AMsmallest.p.value
     }
